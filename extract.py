@@ -60,8 +60,6 @@ class extract:
         """
         r_eye_contour = []
         l_eye_contour = []
-        height, width = image.shape[:2]
-        mask = np.zeros((height, width, 3), dtype=np.uint8)
         shape = predictor(image, face)
         for i in range(shape.num_parts):
             # 右目
@@ -82,3 +80,42 @@ class extract:
         r_eye_contour = np.array(r_eye_contour)
         l_eye_contour = np.array(l_eye_contour)
         return r_eye_contour, l_eye_contour
+
+    def getNoseSideContour(self, image, predictor, face):
+        """鼻側面の輪郭取得
+        @ param1[in] image              入力画像
+        @ param2[in] predictor          予測器
+        @ param3[in] face               検出した顔領域
+        @ param[out] r_nose_contour      右鼻側面輪郭
+        @ param[out] l_nose_contour      左鼻側面輪郭
+        """
+        r_nose_contour = []
+        l_nose_contour = []
+        shape = predictor(image, face)
+        for i in range(shape.num_parts):
+            r_nose_point = []
+            l_nose_point = []
+
+            if i == 27 or i == 30:
+                r_nose_point.append(shape.part(i).x)
+                r_nose_point.append(shape.part(i).y)
+                r_nose_point = np.array(r_nose_point)
+                r_nose_contour.append(r_nose_point)
+                l_nose_point.append(shape.part(i).x)
+                l_nose_point.append(shape.part(i).y)
+                l_nose_point = np.array(l_nose_point)
+                l_nose_contour.append(l_nose_point)
+            elif i == 31:
+                r_nose_point.append(shape.part(i).x)
+                r_nose_point.append(shape.part(i).y)
+                r_nose_point = np.array(r_nose_point)
+                r_nose_contour.append(r_nose_point)
+            elif i == 35:
+                l_nose_point.append(shape.part(i).x)
+                l_nose_point.append(shape.part(i).y)
+                l_nose_point = np.array(l_nose_point)
+                l_nose_contour.append(l_nose_point)
+
+        r_nose_contour = np.array(r_nose_contour)
+        l_nose_contour = np.array(l_nose_contour)
+        return r_nose_contour, l_nose_contour

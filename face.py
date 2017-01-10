@@ -119,6 +119,17 @@ if __name__ == '__main__':
         cv2.putText(draw_img, "Orientation : " + str(types[i]), (10, i+30), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
         draw.drawFacePoint(draw_img, predictor, face, line=True, point=True)
 
+        # 鼻の側面の輪郭取得
+        r_nose_contour, l_nose_contour = extract.getNoseSideContour(image, predictor, face)
+        if len(r_nose_contour) != 3 and len(l_nose_contour) != 3:
+            continue
+        cv2.drawContours(draw_img, [r_nose_contour], -1, (255, 255, 0), -1)
+        cv2.drawContours(draw_img, [l_nose_contour], -1, (0, 255, 255), -1)
+        # 面積算出
+        r_nose_area = cv2.contourArea(r_nose_contour)
+        l_nose_area = cv2.contourArea(l_nose_contour)
+        cv2.putText(draw_img, "R Nose Area : " + str(r_nose_area) + ", L Nose Aea : " + str(l_nose_area), (10, i+90), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
+
         # 右目、左目の輪郭取得
         r_eye_contour, l_eye_contour = extract.getEyeContour(image, predictor, face)
         # 輪郭座標をX、Y座標リストに分割
@@ -136,12 +147,6 @@ if __name__ == '__main__':
 
         if len(r_eye_contour) != 6:
             continue
-        r_top, r_bottom, r_left, r_right = extract.cutArea(r_xpoint, r_ypoint)
-        r_eye_ROI = gray_img[r_top:r_bottom, r_left:r_right]
-        r_eye_ROI_blur = cv2.blur(r_eye_ROI, (15,15))
-        r_eye_diff = cv2.absdiff(r_eye_ROI, r_eye_ROI_blur)
-        #retval, r_eye_diff = cv2.threshold(r_eye_diff, 30, 255, cv2.THRESH_BINARY)
-
         # 右目の瞼の曲率計算
         r_midPoint = calc.calcMidPoint(r_eye_contour[0], r_eye_contour[3])
         r_lid_upper, r_lid_lower = getEyeLidCurvature(r_midPoint, r_xpoint, r_ypoint)
@@ -163,8 +168,5 @@ if __name__ == '__main__':
         cv2.circle(draw_img, (L_cx, L_cy), 2, (0, 255, 255), -1)
 
     cv2.imshow("Image", draw_img)
-    cv2.imshow("R_EYE_ROI", r_eye_ROI)
-    cv2.imshow("R_EYE_BLUR", r_eye_ROI_blur)
-    cv2.imshow("Diff", r_eye_diff)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
