@@ -90,7 +90,8 @@ def getPupilPoint(xpoint, ypoint, gray_img, eye_mask, rate):
         cx = None
         cy = None
         iris_hull = []
-    cx, cy, iris_hull = pupil.detectPupil(iris_points)
+    else:
+        cx, cy, iris_hull = pupil.detectPupil(iris_points)
     return cx, cy, iris_hull
 
 if __name__ == '__main__':
