@@ -2,6 +2,8 @@
 import dlib
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
 import sys
 
 import draw
@@ -9,12 +11,16 @@ import extract
 import calculation
 import iris
 import pupil
+import otsu
 
 draw = draw.draw()
 extract = extract.extract()
 calc = calculation.calculation()
 iris = iris.iris()
 pupil = pupil.pupil()
+otsu = otsu.otsu()
+
+matplotlib.rcParams['font.size'] = 8
 
 def convertXPointList(pointList, x):
     """座標点リストをX,Y座標リストへ変換
@@ -74,17 +80,23 @@ def getPupilPoint(xpoint, ypoint, gray_img, eye_mask, rate):
     @ param3[in]  gray_img              入力画像のグレースケール画像
     @ param4[in]  eye_mask              目の領域のマスク
     @ param5[in]  rate                  輝度比
-    @ param1[out] cx                    重心X座標
-    @ param2[out] cy                    重心Y座標
-    @ param3[out] iris_hull             虹彩の凸包座標
+    @ param1[out] eye_roi               目領域のROI
+    @ param2[out] eye_luminance         輝度値リスト
+    @ param2[out] cx                    重心X座標
+    @ param3[out] cy                    重心Y座標
+    @ param4[out] iris_hull             虹彩の凸包座標
     """
     # 目の領域抽出
     top, bottom, left, right = extract.cutArea(xpoint, ypoint)
     eye_roi = gray_img[top:bottom, left:right]
     eye_mask_roi = eye_mask[top:bottom, left:right]
     # 目の虹彩、瞳孔検出
-    threshold = iris.defineThreshold(eye_roi, eye_mask_roi, rate)
-    iris_points = iris.detectIris(left, top, eye_roi, eye_mask_roi, threshold)
+    # 閾値設定(割合ver)
+    threshold, eye_luminance = iris.defineThreshold(eye_roi, eye_mask_roi, rate)
+    # 閾値設定(大津ver)
+    otsuthre = otsu.threshOtsu(eye_luminance)
+    print("threshold : ", threshold, "Otsu : ", otsuthre)
+    iris_points = iris.detectIris(left, top, eye_roi, eye_mask_roi, otsuthre)
     if len(iris_points) == 0:
         cx = None
         cy = None
@@ -93,7 +105,7 @@ def getPupilPoint(xpoint, ypoint, gray_img, eye_mask, rate):
         for i in range(len(iris_points)):
             cv2.circle(eye_roi, (iris_points[i][0] - left, iris_points[i][1] - top), 1, (255, 255, 255), -1)
         cx, cy, iris_hull = pupil.detectPupil(iris_points)
-    return eye_roi, cx, cy, iris_hull
+    return eye_roi, eye_luminance, cx, cy, iris_hull
 
 if __name__ == '__main__':
 
@@ -167,7 +179,7 @@ if __name__ == '__main__':
         r_lid_upper, r_lid_lower = getEyeLidCurvature(r_midPoint, r_xpoint, r_ypoint)
         cv2.putText(draw_img, "(R)Upper Lid Curva : " + str(r_lid_upper) + ", (R)Lower Lid Curva : " + str(r_lid_lower), (10, i+60), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
         # 右目の瞳孔検出
-        R_eye_ROI, R_cx, R_cy, R_iris_hull = getPupilPoint(r_xpoint, r_ypoint, gray_img, eye_mask, 0.25)
+        R_eye_ROI, R_eye_lumi, R_cx, R_cy, R_iris_hull = getPupilPoint(r_xpoint, r_ypoint, gray_img, eye_mask, 0.25)
         if len(R_iris_hull) != 0:
             cv2.drawContours(draw_img, [R_iris_hull], -1, (255, 255, 0), 1)
             print("Number of R_iris_hull point : ", len(R_iris_hull))
@@ -186,7 +198,7 @@ if __name__ == '__main__':
         l_lid_upper, l_lid_lower = getEyeLidCurvature(l_midPoint, l_xpoint, l_ypoint)
         cv2.putText(draw_img, "(L)Upper Lid Curva : " + str(l_lid_upper) + ", (L)Lower Lid Curva : " + str(l_lid_lower), (10, i+75), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
         # 左目の瞳孔検出
-        L_eye_ROI, L_cx, L_cy, L_iris_hull = getPupilPoint(l_xpoint, l_ypoint, gray_img, eye_mask, 0.25)
+        L_eye_ROI, L_eye_lumi, L_cx, L_cy, L_iris_hull = getPupilPoint(l_xpoint, l_ypoint, gray_img, eye_mask, 0.25)
         if len(L_iris_hull) != 0:
             cv2.drawContours(draw_img, [L_iris_hull], -1, (255, 255, 0), 1)
             print("Number of L_iris_hull point : ", len(L_iris_hull))
@@ -198,16 +210,40 @@ if __name__ == '__main__':
         else:
             print("Can not detect L iris")
 
-    cv2.imshow("Image", draw_img)
-    cv2.imshow("Mask", eye_mask)
+    #cv2.imshow("Image", draw_img)
+    #cv2.imshow("Mask", eye_mask)
     #cv2.imwrite(savepath + "/Result.png", draw_img)
     #cv2.imwrite(savepath + "/Mask.png", eye_mask)
-
-    cv2.imshow("R_EYE_ROI", R_eye_ROI)
+    #cv2.imshow("R_EYE_ROI", R_eye_ROI)
     #cv2.imwrite(savepath + "/R_EYE_ROI.png", R_eye_ROI)
-
-    cv2.imshow("L_EYE_ROI", L_eye_ROI)
+    #cv2.imshow("L_EYE_ROI", L_eye_ROI)
     #cv2.imwrite(savepath + "/L_EYE_ROI.png", L_eye_ROI)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
 
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    fig = plt.figure(figsize=(14, 7))
+    ax_R_ROI = fig.add_subplot(221)
+    ax_L_ROI = fig.add_subplot(222)
+    ax_R_ROI_hist = fig.add_subplot(223)
+    ax_L_ROI_hist = fig.add_subplot(224)
+
+    ax_R_ROI.set_title("R eye")
+    ax_L_ROI.set_title("L eye")
+    ax_R_ROI_hist.set_title("R eye Hist")
+    ax_L_ROI_hist.set_title("L eye Hist")
+
+    ax_R_ROI.imshow(R_eye_ROI, cmap=plt.cm.gray)
+    ax_L_ROI.imshow(L_eye_ROI, cmap=plt.cm.gray)
+
+    ax_R_ROI_hist.set_ylabel("Number of Pixels")
+    ax_R_ROI_hist.set_xlabel("Luminance value")
+    ax_R_ROI_hist.set_xlim([0, 256])
+    ax_R_ROI_hist.hist(R_eye_lumi, 256, [0, 256], color='blue')
+    R_hist_ymin, R_hist_ymax = ax_R_ROI_hist.get_ylim()
+
+    ax_R_ROI_hist.set_ylabel("Number of Pixels")
+    ax_L_ROI_hist.set_xlabel("Luminance value")
+    ax_L_ROI_hist.set_xlim([0, 256])
+    ax_L_ROI_hist.hist(L_eye_lumi, 256, [0, 256], color='blue')
+
+    plt.show()

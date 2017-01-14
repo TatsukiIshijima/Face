@@ -5,10 +5,11 @@ class iris:
     """虹彩検出クラス"""
 
     """目領域内の虹彩検出の閾値決定
-    @ param1[in] ROI        目の領域のROI(グレースケール)
-    @ param2[in] mask       上記領域のマスク
-    @ param3[in] rate       輝度比
-    @ param[out] threshold  閾値
+    @ param1[in] ROI            目の領域のROI(グレースケール)
+    @ param2[in] mask           上記領域のマスク
+    @ param3[in] rate           輝度比
+    @ param1[out] threshold     閾値
+    @ param2[out] eye_luminance マスク内輝度値リスト
     """
     def defineThreshold(self, ROI, mask, rate):
         eye_luminance = []
@@ -19,8 +20,9 @@ class iris:
                 if mask[row][col] == 255:
                     eye_luminance.append(ROI[row][col])
 
+        eye_luminance = np.array(eye_luminance)
         threshold = (max(eye_luminance) - min(eye_luminance)) * rate
-        return threshold
+        return threshold, eye_luminance
 
     """虹彩検出
     @ param1[in] ROI_left               原画像中の抽出したROIの左上頂点のX座標
