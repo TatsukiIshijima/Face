@@ -2,7 +2,6 @@
 import dlib
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import sys
 
 import draw
@@ -91,8 +90,10 @@ def getPupilPoint(xpoint, ypoint, gray_img, eye_mask, rate):
         cy = None
         iris_hull = []
     else:
+        for i in range(len(iris_points)):
+            cv2.circle(eye_roi, (iris_points[i][0] - left, iris_points[i][1] - top), 1, (255, 255, 255), -1)
         cx, cy, iris_hull = pupil.detectPupil(iris_points)
-    return cx, cy, iris_hull
+    return eye_roi, cx, cy, iris_hull
 
 if __name__ == '__main__':
 
@@ -103,6 +104,8 @@ if __name__ == '__main__':
     predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
     image = cv2.imread(param[1])
+    #savepath = param[2]
+    #image = cv2.resize(image, (480, 240))
     height, width = image.shape[:2]
     gray_img = image.copy()
     draw_img = image.copy()
@@ -111,6 +114,9 @@ if __name__ == '__main__':
 
     # dlib version 18.18だと引数が異なるので注意
     faces, scores, types = facedetector.run(image, 0)
+    if len(faces) == 0:
+        print("Can not detect face")
+        sys.exit()
     for i, face in enumerate(faces):
         top, bottom, left, right = face.top(), face.bottom(), face.left(), face.right()
         if min(top, height - bottom - 1, left, width - right -1) < 0:
@@ -120,12 +126,20 @@ if __name__ == '__main__':
         cv2.putText(draw_img, "Orientation : " + str(types[i]), (10, i+30), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
         draw.drawFacePoint(draw_img, predictor, face, line=True, point=True)
 
+        # 顔の輪郭取得
+        face_contour = extract.getFaceContour(image, predictor, face)
+        if len(face_contour) != 17:
+            continue
+        # 輪郭から楕円近似
+        #ellipse = cv2.fitEllipse(face_contour)
+        #cv2.ellipse(draw_img, ellipse, (0, 255, 0), 1)
+
         # 鼻の側面の輪郭取得
         r_nose_contour, l_nose_contour = extract.getNoseSideContour(image, predictor, face)
         if len(r_nose_contour) != 3 and len(l_nose_contour) != 3:
             continue
-        cv2.drawContours(draw_img, [r_nose_contour], -1, (255, 255, 0), -1)
-        cv2.drawContours(draw_img, [l_nose_contour], -1, (0, 255, 255), -1)
+        cv2.drawContours(draw_img, [r_nose_contour], -1, (255, 255, 0), 1)
+        cv2.drawContours(draw_img, [l_nose_contour], -1, (0, 255, 255), 1)
         # 面積算出
         r_nose_area = cv2.contourArea(r_nose_contour)
         l_nose_area = cv2.contourArea(l_nose_contour)
@@ -153,9 +167,17 @@ if __name__ == '__main__':
         r_lid_upper, r_lid_lower = getEyeLidCurvature(r_midPoint, r_xpoint, r_ypoint)
         cv2.putText(draw_img, "(R)Upper Lid Curva : " + str(r_lid_upper) + ", (R)Lower Lid Curva : " + str(r_lid_lower), (10, i+60), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
         # 右目の瞳孔検出
-        R_cx, R_cy, R_iris_hull = getPupilPoint(r_xpoint, r_ypoint, gray_img, eye_mask, 0.2)
-        cv2.drawContours(draw_img, [R_iris_hull], -1, (255, 255, 0), 1)
-        cv2.circle(draw_img, (R_cx, R_cy), 2, (0, 255, 255), -1)
+        R_eye_ROI, R_cx, R_cy, R_iris_hull = getPupilPoint(r_xpoint, r_ypoint, gray_img, eye_mask, 0.25)
+        if len(R_iris_hull) != 0:
+            cv2.drawContours(draw_img, [R_iris_hull], -1, (255, 255, 0), 1)
+            print("Number of R_iris_hull point : ", len(R_iris_hull))
+        else:
+            print("Can not detect R iris")
+
+        if  R_cx != None and R_cy != None:
+            cv2.circle(draw_img, (R_cx, R_cy), 2, (0, 255, 255), -1)
+        else:
+            print("Can not detect R pupil")
 
         if len(l_eye_contour) != 6:
             continue
@@ -164,10 +186,28 @@ if __name__ == '__main__':
         l_lid_upper, l_lid_lower = getEyeLidCurvature(l_midPoint, l_xpoint, l_ypoint)
         cv2.putText(draw_img, "(L)Upper Lid Curva : " + str(l_lid_upper) + ", (L)Lower Lid Curva : " + str(l_lid_lower), (10, i+75), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
         # 左目の瞳孔検出
-        L_cx, L_cy, L_iris_hull = getPupilPoint(l_xpoint, l_ypoint, gray_img, eye_mask, 0.2)
-        cv2.drawContours(draw_img, [L_iris_hull], -1, (255, 255, 0), 1)
-        cv2.circle(draw_img, (L_cx, L_cy), 2, (0, 255, 255), -1)
+        L_eye_ROI, L_cx, L_cy, L_iris_hull = getPupilPoint(l_xpoint, l_ypoint, gray_img, eye_mask, 0.25)
+        if len(L_iris_hull) != 0:
+            cv2.drawContours(draw_img, [L_iris_hull], -1, (255, 255, 0), 1)
+            print("Number of L_iris_hull point : ", len(L_iris_hull))
+        else:
+            print("Can not detect L iris")
+
+        if L_cx != None and L_cy != None:
+            cv2.circle(draw_img, (L_cx, L_cy), 2, (0, 255, 255), -1)
+        else:
+            print("Can not detect L iris")
 
     cv2.imshow("Image", draw_img)
+    cv2.imshow("Mask", eye_mask)
+    #cv2.imwrite(savepath + "/Result.png", draw_img)
+    #cv2.imwrite(savepath + "/Mask.png", eye_mask)
+
+    cv2.imshow("R_EYE_ROI", R_eye_ROI)
+    #cv2.imwrite(savepath + "/R_EYE_ROI.png", R_eye_ROI)
+
+    cv2.imshow("L_EYE_ROI", L_eye_ROI)
+    #cv2.imwrite(savepath + "/L_EYE_ROI.png", L_eye_ROI)
+
     cv2.waitKey(0)
     cv2.destroyAllWindows()

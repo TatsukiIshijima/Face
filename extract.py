@@ -119,3 +119,23 @@ class extract:
         r_nose_contour = np.array(r_nose_contour)
         l_nose_contour = np.array(l_nose_contour)
         return r_nose_contour, l_nose_contour
+
+    def getFaceContour(self, image, predictor, face):
+        """顔の輪郭取得
+        @ param1[in] image              入力画像
+        @ param2[in] predictor          予測器
+        @ param3[in] face               検出した顔領域
+        @ param[out] face_contour       顔輪郭
+        """
+        face_contour = []
+        shape = predictor(image, face)
+        for i in range(shape.num_parts):
+            if i >= 0 and i <= 16:
+                face_point = []
+                face_point.append(shape.part(i).x)
+                face_point.append(shape.part(i).y)
+                face_point = np.array(face_point)
+                face_contour.append(face_point)
+
+        face_contour = np.array(face_contour)
+        return face_contour

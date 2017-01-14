@@ -13,11 +13,13 @@ class pupil:
         @ param3[out] iris_hull                虹彩の凸包座標リスト
         """
         # 凸包座標算出
-        """iris_pointsの個数が少ない場合エラー"""
         iris_hull = cv2.convexHull(iris_points)
         # 重心算出
-        """分母が0の場合エラー"""
         M = cv2.moments(iris_hull)
-        cx = int(M['m10']/M['m00'])
-        cy = int(M['m01']/M['m00'])
+        if (M['m00'] != 0.0):
+            cx = int(M['m10']/M['m00'])
+            cy = int(M['m01']/M['m00'])
+        else:
+            cx = None
+            cy = None
         return cx, cy, iris_hull
