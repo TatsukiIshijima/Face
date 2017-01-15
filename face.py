@@ -129,6 +129,16 @@ def makePupilMask(xpoint, ypoint, gray_img, eye_mask):
 
     return pupil_mask
 
+def morpho(mask, turn, iteration):
+    if turn == True:
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, None, iterations=iteration)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, None, iterations=iteration)
+    else:
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, None, iterations=iteration)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, None, iterations=iteration)
+
+    return mask
+
 if __name__ == '__main__':
 
     param = sys.argv
@@ -143,6 +153,7 @@ if __name__ == '__main__':
     height, width = image.shape[:2]
     gray_img = image.copy()
     draw_img = image.copy()
+    draw_otsu_img = image.copy()
     eye_mask = np.zeros((height, width, 1), dtype=np.uint8)
     gray_img = cv2.cvtColor(gray_img, cv2.COLOR_BGR2GRAY)
 
@@ -156,9 +167,11 @@ if __name__ == '__main__':
         if min(top, height - bottom - 1, left, width - right -1) < 0:
             continue
         cv2.rectangle(draw_img, (left, top), (right, bottom), (0, 0, 255), 1)
+        cv2.rectangle(draw_otsu_img, (left, top), (right, bottom), (0, 0, 255), 1)
         cv2.putText(draw_img, "Scores : " + str(scores[i]), (10, i+15), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
         cv2.putText(draw_img, "Orientation : " + str(types[i]), (10, i+30), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
         draw.drawFacePoint(draw_img, predictor, face, line=True, point=True)
+        draw.drawFacePoint(draw_otsu_img, predictor, face, line=True, point=True)
 
         # 顔の輪郭取得
         face_contour = extract.getFaceContour(image, predictor, face)
@@ -235,25 +248,19 @@ if __name__ == '__main__':
             print("Can not detect L iris")
 
     """
-    cv2.imshow("Image", draw_img)
-    #cv2.imshow("Mask", eye_mask)
     #cv2.imwrite(savepath + "/Result.png", draw_img)
     #cv2.imwrite(savepath + "/Mask.png", eye_mask)
-    #cv2.imshow("R_EYE_ROI", R_eye_ROI)
     #cv2.imwrite(savepath + "/R_EYE_ROI.png", R_eye_ROI)
-    #cv2.imshow("L_EYE_ROI", L_eye_ROI)
     #cv2.imwrite(savepath + "/L_EYE_ROI.png", L_eye_ROI)
-    #cv2.imshow("L_iris_mask", L_iris_mask)
-    #cv2.imshow("L_Pupil_Maks", L_pupil_mask)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
     """
 
     fig = plt.figure(figsize=(14, 7))
-    ax_R_ROI = fig.add_subplot(3,4,2)
-    ax_L_ROI = fig.add_subplot(3,4,3)
-    ax_R_ROI_hist = fig.add_subplot(3,4,6)
-    ax_L_ROI_hist = fig.add_subplot(3,4,7)
+    ax_R_ROI = fig.add_subplot(3,4,1)
+    ax_L_ROI = fig.add_subplot(3,4,2)
+    ax_R_ROI_hist = fig.add_subplot(3,4,5)
+    ax_L_ROI_hist = fig.add_subplot(3,4,6)
+    ax_result = fig.add_subplot(3,4,7)
+    ax_result_otsu = fig.add_subplot(3,4,8)
     ax_R_iris1 = fig.add_subplot(3,4,9)
     ax_R_iris2 = fig.add_subplot(3,4,10)
     ax_L_iris1 = fig.add_subplot(3,4,11)
@@ -261,6 +268,8 @@ if __name__ == '__main__':
 
     ax_R_ROI.set_title("R eye")
     ax_L_ROI.set_title("L eye")
+    ax_result.set_title("Result(Ver.Rate)")
+    ax_result_otsu.set_title("Result(Ver.Otsu)")
     ax_R_ROI_hist.set_title("R eye Hist")
     ax_L_ROI_hist.set_title("L eye Hist")
     ax_R_iris1.set_title("R iris mask(Ver.Rate)")
@@ -270,6 +279,8 @@ if __name__ == '__main__':
 
     ax_R_ROI.imshow(R_eye_ROI, cmap=plt.cm.gray)
     ax_L_ROI.imshow(L_eye_ROI, cmap=plt.cm.gray)
+    ax_result.imshow(cv2.cvtColor(draw_img, cv2.COLOR_BGR2RGB))
+    ax_result_otsu.imshow(cv2.cvtColor(draw_otsu_img, cv2.COLOR_BGR2RGB))
 
     R_iris_mask1 = cv2.bitwise_and(R_eye_ROI, R_eye_ROI, mask=R_iris_mask1)
     R_iris_mask2 = cv2.bitwise_and(R_eye_ROI, R_eye_ROI, mask=R_iris_mask2)
