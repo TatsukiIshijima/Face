@@ -20,16 +20,23 @@ class otsu:
         Q = hist[0].cumsum()                      # 累積度数配列(画素数の和)
         bins = np.arange(256)
 
-        for i in range(1, 256):
+        for i in range(0, 256):
             p1, p2 = np.hsplit(hist[0], [i])      # 輝度度数
             q1, q2 = Q[i], Q[255] - Q[i]          # 画素数
             b1, b2 = np.hsplit(bins, [i])         # 輝度値
 
-            m1 = np.sum(p1 * b1) / q1
-            m2 = np.sum(p2 * b2) / q2
-            v1 = np.sum(((b1 - m1)**2) * p1) / q1
-            v2 = np.sum(((b2 - m2)**2) * p2) / q2
-
+            if q1 != 0.0:
+                m1 = np.sum(p1 * b1) / q1
+                v1 = np.sum(((b1 - m1)**2) * p1) / q1
+            else:
+                m1 = 0.0
+                v1 = 0.0
+            if q2 != 0.0:
+                m2 = np.sum(p2 * b2) / q2
+                v2 = np.sum(((b2 - m2)**2) * p2) / q2
+            else:
+                m2 = 0.0
+                q2 = 0.0
             fn = v1 * q1 + v2 * q2
 
             if fn < fn_min:
