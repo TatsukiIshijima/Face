@@ -30,9 +30,10 @@ class iris:
     @ param3[in] ROI                    目の領域のROI(グレースケール)
     @ param4[in] mask                   上記領域のマスク
     @ param5[in] threshold              閾値
+    @ param6[in] abso                   画像における絶対座標で返すか返さないか
     @ param[out] iris_points(np.array)  虹彩座標リスト
     """
-    def detectIris(self, ROI_left, ROI_top, ROI, mask, threshold):
+    def detectIris(self, ROI_left, ROI_top, ROI, mask, threshold, abso):
         iris_points = []
         height, width = ROI.shape[:2]
 
@@ -41,8 +42,12 @@ class iris:
                 if mask[row][col] == 255:
                     if ROI[row][col] <= int(threshold):
                         iris_point = []
-                        iris_point.append(ROI_left + col)
-                        iris_point.append(ROI_top + row)
+                        if abso == True:
+                            iris_point.append(ROI_left + col)
+                            iris_point.append(ROI_top + row)
+                        else:
+                            iris_point.append(col)
+                            iris_point.append(row)
                         iris_point = np.array(iris_point)
                         iris_points.append(iris_point)
 

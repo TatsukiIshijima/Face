@@ -3,7 +3,6 @@ import numpy as np
 import cv2
 import sys
 import pylab as plt
-import math
 
 class otsu:
 
