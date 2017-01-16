@@ -73,63 +73,13 @@ def getEyeLidCurvature(midPoint, xpoint, ypoint):
     eyeLid_lower_curva = calc.calcCurvature(eyeLid_lowerX, eyeLid_lowerY, midPoint[0])
     return eyeLid_upper_curva, eyeLid_lower_curva
 
-def getPupilPoint(xpoint, ypoint, gray_img, eye_mask, rate):
-    """瞳孔検出
-    @ param1[in]  xpoint                目の輪郭のX座標リスト
-    @ param2[in]  ypoint                目の輪郭のY座標リスト
-    @ param3[in]  gray_img              入力画像のグレースケール画像
-    @ param4[in]  eye_mask              目の領域のマスク
-    @ param5[in]  rate                  輝度比
-    @ param1[out] eye_roi               目領域のROI
-    @ param2[out] eye_luminance         輝度値リスト
-    @ param3[out] iris_mask             虹彩マスク
-    @ param4[out] cx                    重心X座標
-    @ param5[out] cy                    重心Y座標
-    @ param6[out] iris_hull             虹彩の凸包座標
-    """
-    # 目の領域抽出
-    top, bottom, left, right = extract.cutArea(xpoint, ypoint)
-    eye_roi = gray_img[top:bottom, left:right]
-    eye_mask_roi = eye_mask[top:bottom, left:right]
-    iris_mask = np.zeros((eye_mask_roi.shape[0], eye_mask_roi.shape[1], 1), dtype=np.uint8)
-    # 目の虹彩、瞳孔検出
-    # 閾値設定(割合ver)
-    threshold, eye_luminance = iris.defineThreshold(eye_roi, eye_mask_roi, rate)
-    print("threshold : ", threshold)
-    iris_points = iris.detectIris(left, top, eye_roi, eye_mask_roi, threshold, abso=True)
-    iris_points_relative = iris.detectIris(left, top, eye_roi, eye_mask_roi, threshold, abso=False)
-    if len(iris_points) == 0:
-        cx = None
-        cy = None
-        iris_hull = []
-    else:
-        # 虹彩マスク作成
-        for i in range(len(iris_points_relative)):
-            iris_mask[iris_points_relative[i][1]][iris_points_relative[i][0]] = 255
-        # 重心座標と凸包座標
-        cx, cy, iris_hull = pupil.detectPupil(iris_points)
-    return eye_roi, eye_luminance, iris_mask, cx, cy, iris_hull
-
-def makePupilMask(xpoint, ypoint, gray_img, eye_mask):
-    """大津の二値化による瞳孔マスク作成
-    """
-    top, bottom, left, right = extract.cutArea(xpoint, ypoint)
-    eye_roi = gray_img[top:bottom, left:right]
-    eye_mask_roi = eye_mask[top:bottom, left:right]
-    pupil_mask = np.zeros((eye_mask_roi.shape[0], eye_mask_roi.shape[1], 1), dtype=np.uint8)
-    # 目領域内の輝度値取得
-    ret, eye_luminance = iris.defineThreshold(eye_roi, eye_mask_roi, rate=0.2)
-    # 大津の二値化による閾値設定
-    threshold = otsu.threshOtsu(eye_luminance)
-    print("Otsu threshold : " , threshold)
-    iris_points = iris.detectIris(left, top, eye_roi, eye_mask_roi, threshold, abso=False)
-
-    for i in range(len(iris_points)):
-        pupil_mask[iris_points[i][1]][iris_points[i][0]] = 255
-
-    return pupil_mask
-
 def morpho(mask, turn, iteration):
+    """膨張・縮小によるノイズ除去
+    @ param1[in]    mask            マスク画像
+    @ param2[in]    turn            縮小と膨張のどちらを先に行うか
+    @ param3[in]    iteration       回数
+    @ param1[out]   mask            マスク画像
+    """
     if turn == True:
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, None, iterations=iteration)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, None, iterations=iteration)
@@ -138,6 +88,27 @@ def morpho(mask, turn, iteration):
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, None, iterations=iteration)
 
     return mask
+
+def getMaxContour(mask):
+
+    area_tmp = np.inf
+    label = 1
+    labelnum, labelimg, contours, GoCs = cv2.connectedComponentsWithStats(mask)
+
+    if labelnum != 0:
+        for i in range(1,labelnum):
+            left, top, width, height, area = contours[i]
+            # 最大の面積を持つラベルインデックスを取得
+            if area > area_tmp:
+                area_tmp = area
+                label = i
+
+        gx, gy = GoCs[label]
+        #left, top, width, height, area = contours[label]
+    else:
+        gx = None
+        gy = None
+    return gx, gy
 
 if __name__ == '__main__':
 
@@ -213,9 +184,9 @@ if __name__ == '__main__':
         r_midPoint = calc.calcMidPoint(r_eye_contour[0], r_eye_contour[3])
         r_lid_upper, r_lid_lower = getEyeLidCurvature(r_midPoint, r_xpoint, r_ypoint)
         cv2.putText(draw_img, "(R)Upper Lid Curva : " + str(r_lid_upper) + ", (R)Lower Lid Curva : " + str(r_lid_lower), (10, i+60), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
-        # 右目の瞳孔検出
-        R_eye_ROI, R_eye_lumi, R_iris_mask1, R_cx, R_cy, R_iris_hull = getPupilPoint(r_xpoint, r_ypoint, gray_img, eye_mask, 0.25)
-        R_iris_mask2 = makePupilMask(r_xpoint, r_ypoint, gray_img, eye_mask)
+        # 右目の虹彩＆瞳孔検出
+        R_eye_ROI, R_eye_lumi, R_iris_mask1, R_cx, R_cy, R_iris_hull = pupil.getPupilPoint(r_xpoint, r_ypoint, gray_img, eye_mask, 0.25)
+
         if len(R_iris_hull) != 0:
             cv2.drawContours(draw_img, [R_iris_hull], -1, (255, 255, 0), 1)
             print("Number of R_iris_hull point : ", len(R_iris_hull))
@@ -227,15 +198,25 @@ if __name__ == '__main__':
         else:
             print("Can not detect R pupil")
 
+        # 右目の虹彩マスク作成
+        R_iris_mask2 = iris.makeIrisMask(r_xpoint, r_ypoint, gray_img, eye_mask)
+        # ノイズ除去
+        R_iris_mask2 = morpho(mask=R_iris_mask2, turn=True, iteration=2)
+        r_eye_top, r_eye_bottom, r_eye_left, r_eye_right = extract.cutArea(r_xpoint, r_ypoint)
+        # 最大面積のラベルから重心算出
+        R_gx, R_gy = getMaxContour(R_iris_mask2)
+        if R_gx != None and R_gy != None:
+            cv2.circle(draw_otsu_img, (int(r_eye_left + R_gx), int(r_eye_top + R_gy)), 2, (0, 255, 255), -1)
+
         if len(l_eye_contour) != 6:
             continue
         # 左目の瞼の曲率計算
         l_midPoint = calc.calcMidPoint(l_eye_contour[0], l_eye_contour[3])
         l_lid_upper, l_lid_lower = getEyeLidCurvature(l_midPoint, l_xpoint, l_ypoint)
         cv2.putText(draw_img, "(L)Upper Lid Curva : " + str(l_lid_upper) + ", (L)Lower Lid Curva : " + str(l_lid_lower), (10, i+75), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
-        # 左目の瞳孔検出
-        L_eye_ROI, L_eye_lumi, L_iris_mask1, L_cx, L_cy, L_iris_hull = getPupilPoint(l_xpoint, l_ypoint, gray_img, eye_mask, 0.25)
-        L_iris_mask2 = makePupilMask(l_xpoint, l_ypoint, gray_img, eye_mask)
+        # 左目の虹彩＆瞳孔検出
+        L_eye_ROI, L_eye_lumi, L_iris_mask1, L_cx, L_cy, L_iris_hull = pupil.getPupilPoint(l_xpoint, l_ypoint, gray_img, eye_mask, 0.25)
+
         if len(L_iris_hull) != 0:
             cv2.drawContours(draw_img, [L_iris_hull], -1, (255, 255, 0), 1)
             print("Number of L_iris_hull point : ", len(L_iris_hull))
@@ -246,6 +227,16 @@ if __name__ == '__main__':
             cv2.circle(draw_img, (L_cx, L_cy), 2, (0, 255, 255), -1)
         else:
             print("Can not detect L iris")
+
+        # 左目の虹彩マスク作成
+        L_iris_mask2 = iris.makeIrisMask(l_xpoint, l_ypoint, gray_img, eye_mask)
+        # ノイズ除去
+        L_iris_mask2 = morpho(mask=L_iris_mask2, turn=True, iteration=2)
+        l_eye_top, l_eye_bottom, l_eye_left, l_eye_right = extract.cutArea(l_xpoint, l_ypoint)
+        # 最大面積のラベルから重心算出
+        L_gx, L_gy = getMaxContour(L_iris_mask2)
+        if L_gx != None and L_gy != None:
+            cv2.circle(draw_otsu_img, (int(l_eye_left + L_gx), int(l_eye_top + L_gy)), 2, (0, 255, 255), -1)
 
     """
     #cv2.imwrite(savepath + "/Result.png", draw_img)
