@@ -89,7 +89,11 @@ def morpho(mask, turn, iteration):
 
     return mask
 
-def getMaxContour(mask):
+def getMaxContourGoC(mask):
+    """最大輪郭を持つ重心の算出
+    @ param1[in]    mask        マスク画像
+    @ param1[out]   gx, gy      最大面積を持つラベルの重心座標
+    """
 
     area_tmp = np.inf
     label = 1
@@ -109,6 +113,34 @@ def getMaxContour(mask):
         gx = None
         gy = None
     return gx, gy
+
+def getIrisContour(iris_mask, left, top):
+    """虹彩の輪郭座標取得
+    @ param1[in]    iris_mask    虹彩マスク
+    @ param2[in]    left         ROIの左頂点X座標
+    @ param3[in]    top          ROIの左頂点Y座標
+    @ param1[out]   iris_contour 虹彩座標
+    """
+    iris_contour = []
+    iris_mask, contours, hier = cv2.findContours(iris_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    size = 0
+    index = 0
+
+    for i in range(len(contours)):
+        area = cv2.contourArea(contours[i])
+        if area > size:
+            size = area
+            index = i
+
+    for j in range(len(contours[index])):
+        contour_point = []
+        contour_point.append(contours[index][j][0][0] + left)
+        contour_point.append(contours[index][j][0][1] + top)
+        contour_point = np.array(contour_point)
+        iris_contour.append(contour_point)
+
+    iris_contour = np.array(iris_contour)
+    return iris_contour
 
 if __name__ == '__main__':
 
@@ -204,9 +236,13 @@ if __name__ == '__main__':
         R_iris_mask2 = morpho(mask=R_iris_mask2, turn=True, iteration=2)
         r_eye_top, r_eye_bottom, r_eye_left, r_eye_right = extract.cutArea(r_xpoint, r_ypoint)
         # 最大面積のラベルから重心算出
-        R_gx, R_gy = getMaxContour(R_iris_mask2)
+        R_gx, R_gy = getMaxContourGoC(R_iris_mask2)
         if R_gx != None and R_gy != None:
             cv2.circle(draw_otsu_img, (int(r_eye_left + R_gx), int(r_eye_top + R_gy)), 2, (0, 255, 255), -1)
+        # 虹彩輪郭描画
+        r_iris_contour = getIrisContour(R_iris_mask2, r_eye_left, r_eye_top)
+        if len(r_iris_contour) != 0:
+            cv2.drawContours(draw_otsu_img, [r_iris_contour], -1, (255, 255, 0), 1)
 
         if len(l_eye_contour) != 6:
             continue
@@ -234,16 +270,13 @@ if __name__ == '__main__':
         L_iris_mask2 = morpho(mask=L_iris_mask2, turn=True, iteration=2)
         l_eye_top, l_eye_bottom, l_eye_left, l_eye_right = extract.cutArea(l_xpoint, l_ypoint)
         # 最大面積のラベルから重心算出
-        L_gx, L_gy = getMaxContour(L_iris_mask2)
+        L_gx, L_gy = getMaxContourGoC(L_iris_mask2)
         if L_gx != None and L_gy != None:
             cv2.circle(draw_otsu_img, (int(l_eye_left + L_gx), int(l_eye_top + L_gy)), 2, (0, 255, 255), -1)
-
-    """
-    #cv2.imwrite(savepath + "/Result.png", draw_img)
-    #cv2.imwrite(savepath + "/Mask.png", eye_mask)
-    #cv2.imwrite(savepath + "/R_EYE_ROI.png", R_eye_ROI)
-    #cv2.imwrite(savepath + "/L_EYE_ROI.png", L_eye_ROI)
-    """
+        # 虹彩輪郭描画
+        l_iris_contour = getIrisContour(L_iris_mask2, l_eye_left, l_eye_top)
+        if len(l_iris_contour) != 0:
+            cv2.drawContours(draw_otsu_img, [l_iris_contour], -1, (255, 255, 0), 1)
 
     fig = plt.figure(figsize=(14, 7))
     ax_R_ROI = fig.add_subplot(3,4,1)
@@ -292,5 +325,10 @@ if __name__ == '__main__':
     ax_L_ROI_hist.set_xlabel("Luminance value")
     ax_L_ROI_hist.set_xlim([0, 256])
     ax_L_ROI_hist.hist(L_eye_lumi, 256, [0, 256], color='blue')
+
+    """
+    #cv2.imwrite(savepath + "/Result(Ver.Rate).png", draw_img)
+    #cv2.imwrite(savepath + "/Result(Ver.Otsu).png", draw_otsu_img)
+    """
 
     plt.show()
