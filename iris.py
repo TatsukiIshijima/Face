@@ -66,6 +66,7 @@ class iris:
         @ param3[in]  gray_img              入力画像のグレースケール画像
         @ param4[in]  eye_mask              目の領域のマスク
         @ param1[out] iris_mask             虹彩マスク
+        @ param2[out] threshold             閾値
         """
         top, bottom, left, right = extract.cutArea(xpoint, ypoint)
         eye_roi = gray_img[top:bottom, left:right]
@@ -81,4 +82,4 @@ class iris:
         for i in range(len(iris_points)):
             iris_mask[iris_points[i][1]][iris_points[i][0]] = 255
 
-        return iris_mask
+        return iris_mask, threshold

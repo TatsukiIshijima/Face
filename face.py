@@ -217,7 +217,7 @@ if __name__ == '__main__':
         r_lid_upper, r_lid_lower = getEyeLidCurvature(r_midPoint, r_xpoint, r_ypoint)
         cv2.putText(draw_img, "(R)Upper Lid Curva : " + str(r_lid_upper) + ", (R)Lower Lid Curva : " + str(r_lid_lower), (10, i+60), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
         # 右目の虹彩＆瞳孔検出
-        R_eye_ROI, R_eye_lumi, R_iris_mask1, R_cx, R_cy, R_iris_hull = pupil.getPupilPoint(r_xpoint, r_ypoint, gray_img, eye_mask, 0.25)
+        R_eye_ROI, R_thre, R_eye_lumi, R_iris_mask1, R_cx, R_cy, R_iris_hull = pupil.getPupilPoint(r_xpoint, r_ypoint, gray_img, eye_mask, 0.25)
 
         if len(R_iris_hull) != 0:
             cv2.drawContours(draw_img, [R_iris_hull], -1, (255, 255, 0), 1)
@@ -231,18 +231,18 @@ if __name__ == '__main__':
             print("Can not detect R pupil")
 
         # 右目の虹彩マスク作成
-        R_iris_mask2 = iris.makeIrisMask(r_xpoint, r_ypoint, gray_img, eye_mask)
+        R_iris_mask2, R_thre_otsu = iris.makeIrisMask(r_xpoint, r_ypoint, gray_img, eye_mask)
         # ノイズ除去
         R_iris_mask2 = morpho(mask=R_iris_mask2, turn=True, iteration=2)
         r_eye_top, r_eye_bottom, r_eye_left, r_eye_right = extract.cutArea(r_xpoint, r_ypoint)
-        # 最大面積のラベルから重心算出
-        R_gx, R_gy = getMaxContourGoC(R_iris_mask2)
-        if R_gx != None and R_gy != None:
-            cv2.circle(draw_otsu_img, (int(r_eye_left + R_gx), int(r_eye_top + R_gy)), 2, (0, 255, 255), -1)
         # 虹彩輪郭描画
         r_iris_contour = getIrisContour(R_iris_mask2, r_eye_left, r_eye_top)
         if len(r_iris_contour) != 0:
             cv2.drawContours(draw_otsu_img, [r_iris_contour], -1, (255, 255, 0), 1)
+        # 最大面積の輪郭から重心算出
+        R_gx, R_gy, R_iris_hull2 = pupil.detectPupil(r_iris_contour)
+        if R_gx != None and R_gy != None:
+            cv2.circle(draw_otsu_img, (int(R_gx), int(R_gy)), 2, (0, 255, 255), -1)
 
         if len(l_eye_contour) != 6:
             continue
@@ -251,7 +251,7 @@ if __name__ == '__main__':
         l_lid_upper, l_lid_lower = getEyeLidCurvature(l_midPoint, l_xpoint, l_ypoint)
         cv2.putText(draw_img, "(L)Upper Lid Curva : " + str(l_lid_upper) + ", (L)Lower Lid Curva : " + str(l_lid_lower), (10, i+75), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 0))
         # 左目の虹彩＆瞳孔検出
-        L_eye_ROI, L_eye_lumi, L_iris_mask1, L_cx, L_cy, L_iris_hull = pupil.getPupilPoint(l_xpoint, l_ypoint, gray_img, eye_mask, 0.25)
+        L_eye_ROI, L_thre, L_eye_lumi, L_iris_mask1, L_cx, L_cy, L_iris_hull = pupil.getPupilPoint(l_xpoint, l_ypoint, gray_img, eye_mask, 0.25)
 
         if len(L_iris_hull) != 0:
             cv2.drawContours(draw_img, [L_iris_hull], -1, (255, 255, 0), 1)
@@ -265,18 +265,18 @@ if __name__ == '__main__':
             print("Can not detect L iris")
 
         # 左目の虹彩マスク作成
-        L_iris_mask2 = iris.makeIrisMask(l_xpoint, l_ypoint, gray_img, eye_mask)
+        L_iris_mask2, L_thre_otsu = iris.makeIrisMask(l_xpoint, l_ypoint, gray_img, eye_mask)
         # ノイズ除去
         L_iris_mask2 = morpho(mask=L_iris_mask2, turn=True, iteration=2)
         l_eye_top, l_eye_bottom, l_eye_left, l_eye_right = extract.cutArea(l_xpoint, l_ypoint)
-        # 最大面積のラベルから重心算出
-        L_gx, L_gy = getMaxContourGoC(L_iris_mask2)
-        if L_gx != None and L_gy != None:
-            cv2.circle(draw_otsu_img, (int(l_eye_left + L_gx), int(l_eye_top + L_gy)), 2, (0, 255, 255), -1)
         # 虹彩輪郭描画
         l_iris_contour = getIrisContour(L_iris_mask2, l_eye_left, l_eye_top)
         if len(l_iris_contour) != 0:
             cv2.drawContours(draw_otsu_img, [l_iris_contour], -1, (255, 255, 0), 1)
+        # 最大面積の輪郭から重心算出
+        L_gx, L_gy, L_iris_hull2 = pupil.detectPupil(l_iris_contour)
+        if L_gx != None and L_gy != None:
+            cv2.circle(draw_otsu_img, (int(L_gx), int(L_gy)), 2, (0, 255, 255), -1)
 
     fig = plt.figure(figsize=(14, 7))
     ax_R_ROI = fig.add_subplot(3,4,1)
@@ -318,12 +318,16 @@ if __name__ == '__main__':
     ax_R_ROI_hist.set_ylabel("Number of Pixels")
     ax_R_ROI_hist.set_xlabel("Luminance value")
     ax_R_ROI_hist.set_xlim([0, 256])
-    ax_R_ROI_hist.hist(R_eye_lumi, 256, [0, 256], color='blue')
+    ax_R_ROI_hist.axvline(R_thre, color='g')
+    ax_R_ROI_hist.axvline(R_thre_otsu, color='r')
+    ax_R_ROI_hist.hist(R_eye_lumi, 256, [0, 256], color='b')
     R_hist_ymin, R_hist_ymax = ax_R_ROI_hist.get_ylim()
 
     ax_R_ROI_hist.set_ylabel("Number of Pixels")
     ax_L_ROI_hist.set_xlabel("Luminance value")
     ax_L_ROI_hist.set_xlim([0, 256])
+    ax_L_ROI_hist.axvline(L_thre, color='g')
+    ax_L_ROI_hist.axvline(L_thre_otsu, color='r')
     ax_L_ROI_hist.hist(L_eye_lumi, 256, [0, 256], color='blue')
 
     """

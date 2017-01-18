@@ -37,11 +37,12 @@ class pupil:
         @ param4[in]  eye_mask              目の領域のマスク
         @ param5[in]  rate                  輝度比
         @ param1[out] eye_roi               目領域のROI
-        @ param2[out] eye_luminance         輝度値リスト
-        @ param3[out] iris_mask             虹彩マスク
-        @ param4[out] cx                    重心X座標(近似瞳孔x座標)
-        @ param5[out] cy                    重心Y座標(近似瞳孔y座標)
-        @ param6[out] iris_hull             虹彩の凸包座標
+        @ param2[out] threshold             閾値
+        @ param3[out] eye_luminance         輝度値リスト
+        @ param4[out] iris_mask             虹彩マスク
+        @ param5[out] cx                    重心X座標(近似瞳孔x座標)
+        @ param6[out] cy                    重心Y座標(近似瞳孔y座標)
+        @ param7[out] iris_hull             虹彩の凸包座標
         """
         # 目の領域抽出
         top, bottom, left, right = extract.cutArea(xpoint, ypoint)
@@ -64,4 +65,4 @@ class pupil:
                 iris_mask[iris_points_relative[i][1]][iris_points_relative[i][0]] = 255
             # 重心座標と凸包座標
             cx, cy, iris_hull = self.detectPupil(iris_points)
-        return eye_roi, eye_luminance, iris_mask, cx, cy, iris_hull
+        return eye_roi, threshold, eye_luminance, iris_mask, cx, cy, iris_hull
