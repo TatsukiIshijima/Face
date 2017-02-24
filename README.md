@@ -6,7 +6,7 @@ Pupil detect used by dlib
 Download shape_predictor_68_face_landmarks.dat from dlib(http://dlib.net/files/dlib-19.3.zip)  
 
 **Run**  
-python face.py image
+python face.py image  
 image is imagefile reflected someone face.
 
 ## Requirement  
